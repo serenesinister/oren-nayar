@@ -1,0 +1,66 @@
+
+LookAt 
+    0.0 0.3 0.055
+    0 0 0.055
+    0 0 1
+
+
+Camera "perspective"
+    "float fov" [35]
+
+
+Sampler "halton"
+    "integer pixelsamples" [16]
+
+
+Integrator "path"
+    "integer maxdepth" [5]
+
+
+Film "rgb"
+    "string filename" "vessel_render.exr"
+    "integer xresolution" [800]
+    "integer yresolution" [800]
+
+
+WorldBegin
+
+
+# Luz principal lateral/inclinada (Mais potente)
+AttributeBegin
+    Translate 0.35 0.40 0.20
+    AreaLightSource "diffuse"
+        "rgb L" [200 200 200]  # Aumentado de 80 para 200
+    Shape "sphere"
+        "float radius" [0.03]
+AttributeEnd
+
+# Luz de preenchimento (Para clarear o lado escuro)
+AttributeBegin
+    Translate -0.20 0.35 0.05
+    AreaLightSource "diffuse"
+        "rgb L" [60 60 60]    # Aumentado de 30 para 60
+    Shape "sphere"
+        "float radius" [0.02]
+AttributeEnd
+
+
+AttributeBegin
+
+    MakeNamedMaterial "oren"
+
+        "string type" "orennayar"
+
+        "rgb reflectance" [0.7 0.4 0.2]
+
+        "float sigma" [30]
+
+
+    NamedMaterial "oren"
+
+
+    Shape "plymesh"
+        "string filename" "ClayPot.ply"
+
+
+AttributeEnd

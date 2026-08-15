@@ -1,0 +1,47 @@
+
+# camera
+LookAt 0 0 -5   0 0 0   0 1 0
+Camera "perspective" "float fov" [40]
+
+Sampler "halton" "integer pixelsamples" [64]
+Integrator "path" "integer maxdepth" [5]
+
+Film "rgb"
+    "string filename" ["test_oren.exr"]
+    "integer xresolution" [800]
+    "integer yresolution" [800]
+
+WorldBegin
+
+# luz de área (boa pra ver shading)
+AttributeBegin
+    Translate 2 3 -2
+    AreaLightSource "diffuse" "rgb L" [30 30 30]
+    Shape "sphere" "float radius" [0.5]
+AttributeEnd
+
+# fundo cinza
+AttributeBegin
+    Translate 0 0 2
+    Material "diffuse" "rgb reflectance" [0.5 0.5 0.5]
+
+    Shape "trianglemesh"
+        "integer indices" [0 1 2 0 2 3]
+        "point3 P" [
+            -5 -5 0
+             5 -5 0
+             5  5 0
+            -5  5 0
+        ]
+AttributeEnd
+
+# esfera com material Oren-Nayar calibrável
+AttributeBegin
+    MakeNamedMaterial "oren"
+        "string type" "orennayar"
+        "rgb reflectance" [0.7 0.2 0.2]
+        "float sigma" [60.0]
+
+    NamedMaterial "oren"
+    Shape "sphere" "float radius" [1]
+AttributeEnd

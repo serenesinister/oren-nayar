@@ -1,0 +1,244 @@
+                 INÍCIO
+                    |
+                    v
+        +-------------------------+
+        | Configuração do ambiente|
+        +-------------------------+
+                    |
+                    |
+                    v
+ +--------------------------------------+
+ | Importa bibliotecas                  |
+ | - OpenCV                             |
+ | - NumPy                              |
+ | - Matplotlib                         |
+ | - subprocess                         |
+ | - imageio                            |
+ +--------------------------------------+
+                    |
+                    v
+ +--------------------------------------+
+ | Define caminho do PBRT no WSL        |
+ | PBRT_PATH                            |
+ +--------------------------------------+
+                    |
+                    v
+ +--------------------------------------+
+ | Define função windows_to_wsl()       |
+ | Windows path                         |
+ |        ↓                             |
+ | WSL path (/mnt/c/...)                |
+ +--------------------------------------+
+                    |
+                    v
+        +-------------------------+
+        | Criação da cena PBRT    |
+        +-------------------------+
+                    |
+                    v
+ +--------------------------------------+
+ | scene_template                       |
+ |                                      |
+ | Contém:                              |
+ | - câmera                             |
+ | - sampler                            |
+ | - integrador path tracer              |
+ | - filme EXR                          |
+ | - luz de área                        |
+ | - plano de fundo                     |
+ | - esfera Oren-Nayar                  |
+ +--------------------------------------+
+                    |
+                    v
+        +--------------------------+
+        | Função render_test_oren()|
+        +--------------------------+
+                    |
+                    v
+ +--------------------------------------+
+ | Entrada:                             |
+ |                                      |
+ | r = componente vermelho              |
+ | g = componente verde                 |
+ | b = componente azul                  |
+ | sigma = rugosidade                   |
+ +--------------------------------------+
+                    |
+                    v
+ +--------------------------------------+
+ | Substitui parâmetros no template     |
+ |                                      |
+ | {r} {g} {b} {sigma_val}              |
+ |          ↓                           |
+ | arquivo .pbrt                       |
+ +--------------------------------------+
+                    |
+                    v
+ +--------------------------------------+
+ | Executa PBRT                         |
+ |                                      |
+ | subprocess.run()                     |
+ |                                      |
+ | Cena .pbrt                           |
+ |          ↓                           |
+ | Renderização EXR                     |
+ +--------------------------------------+
+                    |
+                    v
+ +--------------------------------------+
+ | Leitura do EXR                       |
+ |                                      |
+ | OpenCV                               |
+ |          ↓                           |
+ | RGB linear                           |
+ +--------------------------------------+
+                    |
+                    v
+        +-------------------------+
+        | Função show_exr()       |
+        +-------------------------+
+                    |
+                    v
+ +--------------------------------------+
+ | Pós-processamento da imagem          |
+ |                                      |
+ | 1 - Clipping                         |
+ | 2 - Tone mapping HDR                 |
+ |    L/(1+L)                           |
+ | 3 - Gamma correction                 |
+ |    L^(1/2.2)                         |
+ +--------------------------------------+
+                    |
+                    v
+        +-------------------------+
+        | Experimento 1            |
+        +-------------------------+
+                    |
+                    v
+ +--------------------------------------+
+ | Render Lambertiano                  |
+ | sigma = 0                           |
+ +--------------------------------------+
+                    |
+                    v
+ +--------------------------------------+
+ | Render Oren-Nayar rugoso            |
+ | sigma = 60                          |
+ +--------------------------------------+
+                    |
+                    v
+ +--------------------------------------+
+ | Comparação visual                   |
+ |                                      |
+ | Lambert x Oren-Nayar                |
+ +--------------------------------------+
+                    |
+                    v
+        +-------------------------+
+        | Cálculo da diferença    |
+        +-------------------------+
+                    |
+                    v
+ +--------------------------------------+
+ | Diferença absoluta                  |
+ |                                      |
+ | D = |Imagem1 - Imagem2|             |
+ +--------------------------------------+
+                    |
+                    v
+ +--------------------------------------+
+ | Visualização da diferença            |
+ |                                      |
+ | - diferença real                     |
+ | - diferença ampliada x5              |
+ +--------------------------------------+
+                    |
+                    v
+        +-------------------------+
+        | Experimento 2           |
+        +-------------------------+
+                    |
+                    v
+ +--------------------------------------+
+ | Varredura de sigma                  |
+ |                                      |
+ | [0,15,30,45,60]                     |
+ +--------------------------------------+
+                    |
+                    v
+ +--------------------------------------+
+ | Loop de renderizações               |
+ |                                      |
+ | Para cada sigma:                    |
+ |     render_test_oren()              |
+ |     salva imagem                    |
+ +--------------------------------------+
+                    |
+                    v
+ +--------------------------------------+
+ | Painel comparativo                  |
+ |                                      |
+ | sigma=0                             |
+ | sigma=15                            |
+ | sigma=30                            |
+ | sigma=45                            |
+ | sigma=60                            |
+ +--------------------------------------+
+                    |
+                    v
+                   FIM
+
+
+
+	PIPELINE DE RENDERIZAÇÃO
+
+
+
+Parâmetros do material
+          |
+          v
+Template PBRT
+          |
+          v
+Arquivo .pbrt
+          |
+          v
+PBRT v4 Path Tracer
+          |
+          v
+Imagem HDR EXR
+          |
+          v
+Processamento linear
+          |
+          v
+Tone Mapping
+          |
+          v
+Visualização
+          |
+          v
+Comparação/análise
+
+
+
+	EXPERIMENTO
+
+
+
+Escolhe material
+       |
+       v
+Define sigma
+       |
+       v
+Renderiza esfera
+       |
+       v
+Extrai imagem
+       |
+       v
+Compara com outro sigma
+       |
+       v
+Analisa influência da rugosidade

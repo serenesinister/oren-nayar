@@ -1,0 +1,558 @@
+compare os dois notebooks:
+
+NOTEBOOK 1:
+
+celula 1:
+
+import os
+
+# Habilita suporte à leitura de arquivos OpenEXR no OpenCV
+os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "1"
+
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+import imageio.v3 as iio
+import subprocess
+
+# Caminho para o executável do PBRT v4 (WSL)
+PBRT_PATH = "/mnt/c/Users/Wemerson/pbrt-v4/build/pbrt"
+
+celula 2:
+
+scene_template = """
+# camera
+LookAt 0 0 -5   0 0 0   0 1 0
+Camera "perspective" "float fov" [40]
+
+Sampler "halton" "integer pixelsamples" [64]
+Integrator "path" "integer maxdepth" [5]
+
+Film "rgb"
+    "string filename" ["test_oren.exr"]
+    "integer xresolution" [800]
+    "integer yresolution" [800]
+
+WorldBegin
+
+# luz de área (boa pra ver shading)
+AttributeBegin
+    Translate 2 3 -2
+    AreaLightSource "diffuse" "rgb L" [30 30 30]
+    Shape "sphere" "float radius" [0.5]
+AttributeEnd
+
+# fundo cinza
+AttributeBegin
+    Translate 0 0 2
+    Material "diffuse" "rgb reflectance" [0.5 0.5 0.5]
+
+    Shape "trianglemesh"
+        "integer indices" [0 1 2 0 2 3]
+        "point3 P" [
+            -5 -5 0
+             5 -5 0
+             5  5 0
+            -5  5 0
+        ]
+AttributeEnd
+
+# esfera com material Oren-Nayar calibrável
+AttributeBegin
+    MakeNamedMaterial "oren"
+        "string type" "orennayar"
+        "rgb reflectance" [{r} {g} {b}]
+        "float sigma" [{sigma_val}]
+
+    NamedMaterial "oren"
+    Shape "sphere" "float radius" [1]
+AttributeEnd
+"""
+
+celula 3:
+
+def render_test_oren(r=0.7, g=0.2, b=0.2, sigma=30.0):
+    # 1. Substitui os parâmetros no template
+    pbrt_content = scene_template.format(
+        r=r,
+        g=g,
+        b=b,
+        sigma_val=sigma
+    )
+
+    # 2. Salva o arquivo temporário
+    filename = "orennayar-test.pbrt"
+    with open(filename, "w") as f:
+        f.write(pbrt_content)
+
+    print(f"Renderizando com sigma={sigma} e cor=[{r}, {g}, {b}]...")
+
+    # 3. Executa o PBRT
+    try:
+        subprocess.run(["wsl", PBRT_PATH, filename], check=True)
+    except Exception as e:
+        print(f"Erro ao rodar o PBRT: {e}")
+        return None
+
+    # 4. Lê a imagem EXR (linear)
+    img_exr = cv2.imread(
+        "test_oren.exr",
+        cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH
+    )
+
+    img_rgb = cv2.cvtColor(img_exr, cv2.COLOR_BGR2RGB)
+
+    # Retorna imagem linear
+    return img_rgb    
+
+celula 4:
+
+# Teste 1: Lambertiano Puro (Sigma = 0)
+img_lambert = render_test_oren(
+    r=0.7,
+    g=0.2,
+    b=0.2,
+    sigma=0.0
+)
+
+# Teste 2: Oren-Nayar Áspero (Sigma = 60)
+img_oren_60 = render_test_oren(
+    r=0.7,
+    g=0.2,
+    b=0.2,
+    sigma=60.0
+)
+
+# Exibição lado a lado
+fig, axes = plt.subplots(1, 2, figsize=(14, 7))
+
+axes[0].imshow(np.clip(img_lambert, 0, 1))
+axes[0].set_title(r"Lambertiano Puro ($\sigma = 0.0$)", fontsize=14)
+axes[0].axis("off")
+
+axes[1].imshow(np.clip(img_oren_60, 0, 1))
+axes[1].set_title(r"Oren-Nayar Áspero ($\sigma = 60.0$)", fontsize=14)
+axes[1].axis("off")
+
+plt.tight_layout()
+plt.show()
+
+celula 5:
+
+# Cálculo da Diferença
+diferenca = np.abs(img_lambert - img_oren_60)
+
+# Exibição Lado a Lado
+fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+
+# Diferença Real (x1) - Mostra a magnitude real do erro
+axes[0].imshow(np.clip(diferenca, 0, 1), vmin=0.0, vmax=1.0)
+axes[0].set_title("Diferença Absoluta Real (x1)", fontsize=14)
+axes[0].axis("off")
+
+# Diferença Ampliada (x5) - Destaca a assinatura visual do modelo
+axes[1].imshow(np.clip(diferenca * 5, 0, 1), vmin=0.0, vmax=1.0)
+axes[1].set_title("Diferença Ampliada (x5)", fontsize=14)
+axes[1].axis("off")
+
+plt.tight_layout()
+plt.show()
+
+celula 6:
+
+# 1. Definição dos valores de sigma para testar
+valores_sigma = [0.0, 15.0, 30.0, 45.0, 60.0]
+imagens_sigma = {}
+
+# 2. Renderizações em lote (loop)
+for s in valores_sigma:
+    img = render_test_oren(r=0.7, g=0.2, b=0.2, sigma=s)
+    imagens_sigma[s] = img
+
+# 3. Plotar o painel comparativo (1 linha, 5 colunas)
+fig, axes = plt.subplots(1, 5, figsize=(20, 5))
+
+for i, s in enumerate(valores_sigma):
+    img_clipped = np.clip(imagens_sigma[s], 0, 1)
+    
+    axes[i].imshow(img_clipped)
+    axes[i].set_title(fr"$\sigma = {s}^\circ$", fontsize=14)
+    axes[i].axis("off")
+
+plt.tight_layout()
+
+# Exibe o gráfico na tela do Jupyter e limpa a memória
+plt.show()
+
+
+
+
+NOTEBOOK 2:
+
+celula 1:
+
+import os
+
+# Habilita leitura de EXR pelo OpenCV
+os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "1"
+
+
+import subprocess
+import imageio.v3 as iio
+import matplotlib.pyplot as plt
+
+
+PBRT_WSL_PATH = "/mnt/c/Users/Wemerson/pbrt-v4/build/pbrt"
+
+
+print("ClayPot:", os.path.exists("ClayPot.ply"))
+print("Reference:", os.path.exists("vase_reference.tif"))
+
+celula 2:
+
+def windows_to_wsl(path):
+
+    path = os.path.abspath(path)
+
+    return (
+        "/mnt/c" +
+        path.replace("\\", "/")[2:]
+    )
+
+celula 3:
+
+scene = r'''
+# camera
+LookAt 0 0 -5   0 0 0   0 1 0
+Camera "perspective" "float fov" [40]
+
+Sampler "halton" "integer pixelsamples" [64]
+Integrator "path" "integer maxdepth" [5]
+
+Film "rgb"
+    "string filename" ["test_oren.exr"]
+    "integer xresolution" [800]
+    "integer yresolution" [800]
+
+WorldBegin
+
+AttributeBegin
+    Translate 2 3 -2
+    AreaLightSource "diffuse" "rgb L" [30 30 30]
+    Shape "sphere" "float radius" [0.5]
+AttributeEnd
+
+
+AttributeBegin
+    Translate 0 0 2
+    Material "diffuse" "rgb reflectance" [0.5 0.5 0.5]
+
+    Shape "trianglemesh"
+        "integer indices" [0 1 2 0 2 3]
+        "point3 P" [
+            -5 -5 0
+             5 -5 0
+             5  5 0
+            -5  5 0
+        ]
+AttributeEnd
+
+
+AttributeBegin
+
+    MakeNamedMaterial "oren"
+        "string type" "orennayar"
+        "rgb reflectance" [0.7 0.4 0.2]
+        "float sigma" [30]
+
+    NamedMaterial "oren"
+
+    Shape "sphere" "float radius" [1]
+
+AttributeEnd
+'''
+
+
+with open("test_oren.pbrt","w") as f:
+    f.write(scene)
+
+celula 4:
+
+scene_wsl = windows_to_wsl("test_oren.pbrt")
+
+
+cmd = [
+    "wsl",
+    PBRT_WSL_PATH,
+    scene_wsl
+]
+
+
+print(" ".join(cmd))
+
+
+result = subprocess.run(
+    cmd,
+    capture_output=True,
+    text=True
+)
+
+
+print(result.stdout)
+print(result.stderr)
+
+celula 5:
+
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+
+# lê o EXR gerado pelo pbrt
+img = cv2.imread(
+    "test_oren.exr",
+    cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH
+)
+
+# OpenCV lê em BGR, convertemos para RGB
+img = cv2.cvtColor(
+    img,
+    cv2.COLOR_BGR2RGB
+)
+
+print("shape:", img.shape)
+print("min:", img.min())
+print("max:", img.max())
+
+
+plt.figure(figsize=(7,7))
+
+# conversão simples para visualizar
+plt.imshow(
+    np.clip(img ** (1/2.2), 0, 1)
+)
+
+plt.axis("off")
+plt.show()
+
+
+
+NOTEBOOK 3:
+
+celula 1:
+
+import os
+import subprocess
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+import imageio.v3 as iio
+
+
+os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "1"
+
+
+PBRT_WSL_PATH = "/mnt/c/Users/Wemerson/pbrt-v4/build/pbrt"
+
+
+print("Mesh:", os.path.exists("ClayPot.ply"))
+print("Reference:", os.path.exists("vase_reference.tif"))
+
+
+# testar o pbrt dentro do WSL
+teste = subprocess.run(
+    [
+        "wsl",
+        PBRT_WSL_PATH,
+        "--help"
+    ],
+    capture_output=True,
+    text=True
+)
+
+
+print("PBRT funcionando:",
+      "usage: pbrt" in teste.stdout)
+
+celula 2:
+
+def windows_to_wsl(path):
+
+    path = os.path.abspath(path)
+
+    return (
+        "/mnt/c" +
+        path.replace("\\", "/")[2:]
+    )
+
+
+# teste
+print(windows_to_wsl("temp_vessel_scene.pbrt"))
+
+celula 3:
+
+scene_vessel = r'''
+LookAt 
+    0.0 0.3 0.055
+    0 0 0.055
+    0 0 1
+
+
+Camera "perspective"
+    "float fov" [35]
+
+
+Sampler "halton"
+    "integer pixelsamples" [16]
+
+
+Integrator "path"
+    "integer maxdepth" [5]
+
+
+Film "rgb"
+    "string filename" "vessel_render.exr"
+    "integer xresolution" [800]
+    "integer yresolution" [800]
+
+
+WorldBegin
+
+
+# Luz principal lateral/inclinada (Mais potente)
+AttributeBegin
+    Translate 0.35 0.40 0.20
+    AreaLightSource "diffuse"
+        "rgb L" [200 200 200]  # Aumentado de 80 para 200
+    Shape "sphere"
+        "float radius" [0.03]
+AttributeEnd
+
+# Luz de preenchimento (Para clarear o lado escuro)
+AttributeBegin
+    Translate -0.20 0.35 0.05
+    AreaLightSource "diffuse"
+        "rgb L" [60 60 60]    # Aumentado de 30 para 60
+    Shape "sphere"
+        "float radius" [0.02]
+AttributeEnd
+
+
+AttributeBegin
+
+    MakeNamedMaterial "oren"
+
+        "string type" "orennayar"
+
+        "rgb reflectance" [0.7 0.4 0.2]
+
+        "float sigma" [30]
+
+
+    NamedMaterial "oren"
+
+
+    Shape "plymesh"
+        "string filename" "ClayPot.ply"
+
+
+AttributeEnd
+'''
+
+
+with open("temp_vessel_scene.pbrt","w") as f:
+    f.write(scene_vessel)
+
+Celula 4:
+
+id="render_vessel_01"
+scene_wsl = windows_to_wsl(
+    "temp_vessel_scene.pbrt"
+)
+
+
+cmd = [
+    "wsl",
+    PBRT_WSL_PATH,
+    scene_wsl
+]
+
+
+result = subprocess.run(
+    cmd,
+    capture_output=True,
+    text=True
+)
+
+
+# print(result.stdout)
+# print(result.stderr)
+
+
+if result.returncode == 0:
+    print("Render concluído com sucesso!")
+else:
+    print("Erro no PBRT. Código:", result.returncode)
+
+Celula 5:
+
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+img = cv2.imread(
+    "vessel_render.exr",
+    cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH
+)
+
+
+img = cv2.cvtColor(
+    img,
+    cv2.COLOR_BGR2RGB
+)
+
+
+print("shape:", img.shape)
+print("min:", img.min())
+print("max:", img.max())
+
+Celula 6:
+
+def show_exr(img):
+
+    img_display = np.clip(img,0,None)
+
+    # tone mapping HDR
+    img_display = img_display / (1 + img_display)
+
+    # linear -> sRGB aproximado
+    img_display = img_display ** (1/2.2)
+
+    plt.figure(figsize=(7,7))
+    plt.imshow(img_display)
+    plt.axis("off")
+    plt.show()
+
+show_exr(img)    
+
+Celula 7:
+
+import trimesh
+
+mesh = trimesh.load("ClayPot.ply")
+
+
+print("Bounds:")
+print(mesh.bounds)
+
+
+print("\nCentro:")
+print(mesh.centroid)
+
+
+print("\nDimensões:")
+print(mesh.extents)
+
+
+print("\nMaior dimensão:")
+print(mesh.extents.max())

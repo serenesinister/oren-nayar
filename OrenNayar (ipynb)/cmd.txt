@@ -1,0 +1,8 @@
+Microsoft Windows [versão 10.0.19045.6466]
+(c) Microsoft Corporation. Todos os direitos reservados.
+
+C:\Windows\system32>cd %userprofile%\Downloads
+
+C:\Users\Wemerson\Downloads>cd OrenNayar (ipynb)
+
+C:\Users\Wemerson\Downloads\OrenNayar (ipynb)>jupyter notebook
